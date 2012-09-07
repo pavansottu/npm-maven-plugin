@@ -108,7 +108,7 @@
                 <artifactId>maven-license-plugin</artifactId>
                 <version>${license.plugin.version}</version>
                 <configuration>
-                    <header>LICENSE.md</header>
+                    <header>LICENSE_HEADER.txt</header>
                     <excludes>
                         <exclude>LICENSE.md</exclude>
                         <exclude>target/**</exclude>
