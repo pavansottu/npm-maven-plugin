@@ -19,7 +19,10 @@
                             <goal>fetch-modules</goal>
                         </goals>
                         <configuration>
-                            <packages><package>recess:1.1.6</package></packages>
+                            <packages>
+                                <package>less:1.3.0</package>
+                                <package>recess:1.1.6</package>
+                            </packages>
                         </configuration>
                     </execution>
                 </executions>
