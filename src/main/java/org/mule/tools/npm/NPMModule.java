@@ -16,7 +16,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.archiver.tar.TarGZipUnArchiver;
-import org.codehaus.plexus.logging.Logger;
+import org.mule.tools.npm.version.VersionResolver;
 
 import java.io.*;
 import java.net.MalformedURLException;
@@ -72,6 +72,8 @@ public class NPMModule {
 
         File tarFile = new File(outputFolderFileTmp, name + "-" + version + ".tgz");
         ProgressListener progressListener = new ProgressListener(log);
+        log.debug("Downloading " + this.name + ":" + this.version);
+
         try {
             os = new FileOutputStream(tarFile);
             is = getDownloadURL().openStream();
@@ -112,7 +114,8 @@ public class NPMModule {
             if (aPackage.exists() && aPackage.isDirectory()) {
                 fileToMove = aPackage;
             } else {
-                throw new MojoExecutionException(String.format("Only one file should be present at the folder when " +
+                throw new MojoExecutionException(String.format(
+                        "Only one file should be present at the folder when " +
                         "unpacking module %s:%s: ", name, version));
             }
         }
@@ -139,37 +142,18 @@ public class NPMModule {
 
             String version = ((String) dependency.getValue());
 
-            int i = version.lastIndexOf(" ");
-            if ( i != -1) {
-                version  = version.substring(i+1);
-            }
-
-            i = version.lastIndexOf("~");
-            if ( i != -1) {
-                version  = version.substring(i+1);
-            }
-
-            i = version.lastIndexOf("x");
-            if ( i != -1) {
-                version  = version.substring(0,i);
-            }
-
             try {
+                version = new VersionResolver().getNextVersion(log, dependencyName, version);
                 dependencies.add(fromNameAndVersion(log, dependencyName, version));
-            } catch (MojoExecutionException e) {
-                for (Object o : downloadMetadataList(dependencyName)) {
-                    String dependencyVersion = (String) o;
-                    if ( dependencyVersion.startsWith(version) ) {
-                        dependencies.add(fromNameAndVersion(log, dependencyName, dependencyVersion));
-                        return;
-                    }
-                }
-                throw new RuntimeException("Error resolving dependency: " + dependencyName + ":" + version + " not found.");
+            } catch (Exception e) {
+                throw new RuntimeException("Error resolving dependency: " +
+                        dependencyName + ":" + version + " not found.");
             }
+
         }
     }
 
-    private Set downloadMetadataList(String name) throws IOException, JsonParseException {
+    public static Set downloadMetadataList(String name) throws IOException, JsonParseException {
         URL dl = new URL(String.format(NPM_URL,name,""));
         ObjectMapper objectMapper = new ObjectMapper();
         Map allVersionsMetadata = objectMapper.readValue(dl,Map.class);
@@ -215,10 +199,17 @@ public class NPMModule {
         return fromNameAndVersion(log, splitNameAndVersion[0], splitNameAndVersion[1]);
     }
 
-    public static NPMModule fromNameAndVersion(Log log, String name, String version) throws MojoExecutionException {
+    public static NPMModule fromNameAndVersion(Log log, String name, String version)
+            throws IllegalArgumentException,
+            MojoExecutionException {
         NPMModule module = new NPMModule();
         module.log = log;
         module.name = name;
+
+        if ("*".equals(version)) {
+            throw new IllegalArgumentException();
+        }
+
         module.version = version;
         module.dependencies = new ArrayList<NPMModule>();
         module.downloadModule();
@@ -233,106 +224,4 @@ public class NPMModule {
         return fromNameAndVersion(log, name, null);
     }
 
-    private static class LoggerAdapter implements Logger {
-        private Log log;
-        private int threshold;
-
-        public LoggerAdapter(Log log) {
-            this.log = log;
-        }
-        @Override
-        public void debug(String message) {
-            log.debug(message);
-        }
-
-        @Override
-        public void debug(String message, Throwable throwable) {
-            log.debug(message,throwable);
-        }
-
-        @Override
-        public boolean isDebugEnabled() {
-            return log.isDebugEnabled();
-        }
-
-        @Override
-        public void info(String message) {
-            log.info(message);
-        }
-
-        @Override
-        public void info(String message, Throwable throwable) {
-            log.info(message,throwable);
-        }
-
-        @Override
-        public boolean isInfoEnabled() {
-            return log.isInfoEnabled();
-        }
-
-        @Override
-        public void warn(String message) {
-            log.warn(message);
-        }
-
-        @Override
-        public void warn(String message, Throwable throwable) {
-            log.warn(message,throwable);
-        }
-
-        @Override
-        public boolean isWarnEnabled() {
-            return log.isWarnEnabled();
-        }
-
-        @Override
-        public void error(String message) {
-            log.error(message);
-        }
-
-        @Override
-        public void error(String message, Throwable throwable) {
-            log.error(message,throwable);
-        }
-
-        @Override
-        public boolean isErrorEnabled() {
-            return log.isErrorEnabled();
-        }
-
-        @Override
-        public void fatalError(String message) {
-            log.error(message);
-        }
-
-        @Override
-        public void fatalError(String message, Throwable throwable) {
-            log.error(message,throwable);
-        }
-
-        @Override
-        public boolean isFatalErrorEnabled() {
-            return log.isErrorEnabled();
-        }
-
-        @Override
-        public int getThreshold() {
-            return threshold;
-        }
-
-        @Override
-        public void setThreshold(int threshold) {
-            this.threshold = threshold;
-        }
-
-        @Override
-        public Logger getChildLogger(String name) {
-            return null;
-        }
-
-        @Override
-        public String getName() {
-            return null;
-        }
-    }
 }

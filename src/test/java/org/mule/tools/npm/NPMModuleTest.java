@@ -13,7 +13,10 @@ import org.apache.maven.plugin.logging.Log;
 import org.junit.Test;
 
 import java.io.File;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 
 public class NPMModuleTest {
