@@ -163,7 +163,15 @@ public class NPMModule {
     private Map downloadMetadata(String name, String version) throws IOException, JsonParseException {
         URL dl = new URL(String.format(NPM_URL,name,version != null ? version : "latest"));
         ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.readValue(dl, Map.class);
+        try {
+            return objectMapper.readValue(dl, Map.class);
+        } catch (IOException e) {
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e1) {
+            }
+            return objectMapper.readValue(dl, Map.class);
+        }
     }
 
     private void downloadModule() throws MojoExecutionException {
