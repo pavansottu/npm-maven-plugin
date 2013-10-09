@@ -10,6 +10,7 @@ package org.mule.tools.npm;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.settings.Settings;
 
 import java.io.File;
 
@@ -36,9 +37,19 @@ public class NPMMojo extends AbstractJavascriptMojo {
      */
     private String [] packages;
 
+    /**
+     * The Maven Settings.
+     * 
+     * @parameter default-value="${settings}"
+     * @required
+     * @readonly
+     */
+    private Settings settings;
+
     public void execute() throws MojoExecutionException {
         Log log = getLog();
 
+        NPMModule.proxy = settings.getActiveProxy();
         for (String aPackage : packages) {
             NPMModule.fromQueryString(log,aPackage).saveToFileWithDependencies(outputDirectory);
         }
