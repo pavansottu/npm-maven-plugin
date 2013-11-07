@@ -11,16 +11,20 @@ package org.mule.tools.npm;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.settings.Proxy;
 import org.codehaus.plexus.archiver.tar.TarGZipUnArchiver;
 import org.mule.tools.npm.version.VersionResolver;
 
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,13 +32,15 @@ import java.util.Set;
 
 public class NPMModule {
 
-    private static String NPM_URL = "http://registry.npmjs.org/%s/%s";
+    public static String npmUrl = "http://registry.npmjs.org/%s/%s";
+    public static Proxy proxy = null;
+
     private String name;
     public String version;
     private Log log;
     private List<NPMModule> dependencies;
     private URL downloadURL;
-
+    
     public String getName() {
         return name;
     }
@@ -53,6 +59,44 @@ public class NPMModule {
         for (NPMModule dependency : dependencies) {
             dependency.saveToFileWithDependencies(file);
         }
+    }
+
+    private static InputStream getInputStreamFromUrl(final URL url) throws IOException {
+
+        URLConnection conn = null;
+        if (proxy != null) {
+            final String proxyUser = proxy.getUsername();
+            final String proxyPassword = proxy.getPassword();
+            final String proxyAddress = proxy.getHost();
+            final int proxyPort = proxy.getPort();
+
+            java.net.Proxy.Type proxyProtocol = java.net.Proxy.Type.DIRECT;
+            if (proxy.getProtocol() != null && proxy.getProtocol().equalsIgnoreCase("HTTP")) {
+                proxyProtocol = java.net.Proxy.Type.HTTP;
+            } else if (proxy.getProtocol() != null && proxy.getProtocol().equalsIgnoreCase("SOCKS")) {
+                proxyProtocol = java.net.Proxy.Type.SOCKS;
+            }
+
+            final InetSocketAddress sa = new InetSocketAddress(proxyAddress, proxyPort);
+            final java.net.Proxy jproxy = new java.net.Proxy(proxyProtocol, sa);
+            conn = url.openConnection(jproxy);
+
+            if (proxyUser != null && proxyUser != "") {
+                @SuppressWarnings("restriction")
+                final sun.misc.BASE64Encoder encoder = new sun.misc.BASE64Encoder();
+                @SuppressWarnings("restriction")
+                final String encodedUserPwd = encoder.encode((proxyUser + ":" + proxyPassword).getBytes());
+                conn.setRequestProperty("Proxy-Authorization", "Basic " + encodedUserPwd);
+            }
+        } else {
+            conn = url.openConnection();
+        }
+        return conn.getInputStream();
+    }
+
+    private static String loadTextFromUrl(final URL url)
+        throws IOException {
+        return IOUtils.toString(getInputStreamFromUrl(url));
     }
 
     public void saveToFile(File file) throws MojoExecutionException {
@@ -76,12 +120,13 @@ public class NPMModule {
 
         try {
             os = new FileOutputStream(tarFile);
-            is = getDownloadURL().openStream();
+            is = getInputStreamFromUrl(getDownloadURL()); 
 
             DownloadCountingOutputStream dcount = new DownloadCountingOutputStream(os);
             dcount.setListener(progressListener);
 
-            getDownloadURL().openConnection().getHeaderField("Content-Length");
+            // TODO: What is the purpose of this?
+            //getDownloadURL().openConnection().getHeaderField("Content-Length");
 
             IOUtils.copy(is, dcount);
 
@@ -154,23 +199,26 @@ public class NPMModule {
     }
 
     public static Set downloadMetadataList(String name) throws IOException, JsonParseException {
-        URL dl = new URL(String.format(NPM_URL,name,""));
+        URL dl = new URL(String.format(npmUrl,name,""));
         ObjectMapper objectMapper = new ObjectMapper();
-        Map allVersionsMetadata = objectMapper.readValue(dl,Map.class);
+        Map allVersionsMetadata = objectMapper.readValue(loadTextFromUrl(dl),Map.class);
         return ((Map) allVersionsMetadata.get("versions")).keySet();
     }
 
     private Map downloadMetadata(String name, String version) throws IOException, JsonParseException {
-        URL dl = new URL(String.format(NPM_URL,name,version != null ? version : "latest"));
+        return downloadMetadata(new URL(String.format(npmUrl,name,version != null ? version : "latest")));
+    }
+
+    public static Map downloadMetadata(URL dl) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         try {
-            return objectMapper.readValue(dl, Map.class);
+            return objectMapper.readValue(loadTextFromUrl(dl), Map.class);
         } catch (IOException e) {
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e1) {
             }
-            return objectMapper.readValue(dl, Map.class);
+            return objectMapper.readValue(loadTextFromUrl(dl), Map.class);
         }
     }
 
