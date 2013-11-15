@@ -33,8 +33,9 @@ Add the following plugin inside build -> plugins:
 
 By default modules are downloaded recursively in `src/main/resources/META-INF` but other path can be specified with the 'outputDirectory' parameter. 
 
-# Authors
+# Authors / Contributors
 Alberto Pose (@thepose)
+Robert Csakany (https://github.com/robertcsakany)
 
 # License
 Copyright 2012 MuleSoft, Inc.
