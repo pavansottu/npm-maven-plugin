@@ -35,6 +35,7 @@ By default modules are downloaded recursively in `src/main/resources/META-INF` b
 
 # Authors / Contributors
 Alberto Pose (@thepose)
+
 Robert Csakany (https://github.com/robertcsakany)
 
 # License
