@@ -28,6 +28,13 @@ public class NPMMojo extends AbstractJavascriptMojo {
      * @parameter expression="${recess.outputDirectory}" default-value="${basedir}/src/main/resources/META-INF"
      */
     private File outputDirectory;
+    
+     /**
+     * From which npm get packages
+     *
+     * @parameter expression="${recess.npmUrl}
+     */
+    private String npmUrl = "";
 
     /**
      * The identifiers of the packages to download. Use the following syntax: package:version
@@ -48,6 +55,10 @@ public class NPMMojo extends AbstractJavascriptMojo {
 
     public void execute() throws MojoExecutionException {
         Log log = getLog();
+        
+        if (!npmUrl.isEmpty()) {
+            NPMModule.npmUrl = npmUrl;
+        }
 
         NPMModule.proxy = settings.getActiveProxy();
         for (String aPackage : packages) {
